@@ -51,14 +51,14 @@ class ClipController extends BaseController
         $strErrorDesc = '';
         $requestMethod = $_SERVER["REQUEST_METHOD"];
         $arrQueryStringParams = $this->getQueryStringParams();
- 
         if (strtoupper($requestMethod) == 'GET') {
             try {
-
+                
                 if (isset($arrQueryStringParams['url']) && $arrQueryStringParams['url']) {
                     $test = [];
                     $test["url"] = $arrQueryStringParams['url'];
                     $test["title"] = "Fake title";
+                    $test["user"] = $arrQueryStringParams['user'];
                 }
  
                 $responseData = json_encode($test);
