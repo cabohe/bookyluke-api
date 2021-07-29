@@ -6,16 +6,20 @@ header('Access-Control-Max-Age: 1000');
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Headers: Origin, Content-Type, Accept, Authorization, X-Request-With, Set-Cookie, Cookie, Bearer');	
 
-
 require __DIR__ . "/inc/bootstrap.php";
+require(PROJECT_ROOT_PATH.'/vendor/autoload.php');
 
-$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$uri = explode( '/', $uri );
+// Firebase ADMIN SDK
+use Kreait\Firebase\Factory;
 
 function kick_out(){
     header("HTTP/1.1 404 Not Found");
     exit();
 }
+
+// Parse and manage ENDPOINT
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$uri = explode( '/', $uri );
 
 // Si no llega endpoint, sacamos.
 if (!isset($uri[1]) || !isset($uri[2])) {
@@ -23,26 +27,61 @@ if (!isset($uri[1]) || !isset($uri[2])) {
 }
 
 $endpoint = $uri[1].'/'.$uri[2];
-$endpoints = ['clip/scrap','clip/scrap2'];
-$open_endpoints = ['clip/scrap2'];
+$endpoints = ['clip/scrap'];
+$open_endpoints = [];
 
 // Si no existe el endpoint, sacamos.
 if( ! in_array( $endpoint , $endpoints ) ){
     kick_out();
 }
 
-// Check AUTH for endpoint
-require PROJECT_ROOT_PATH . "/inc/Auth.php";
-
+// Si es un endpoint privado, necesitamos validacion
 if( ! in_array( $endpoint , $open_endpoints ) ){
     // Need validation
-    kick_out();
+    if( $_GET["token"] && !$_GET["token"]==""){
+        $factory = (new Factory)->withServiceAccount(PROJECT_ROOT_PATH.'/env/bookylucke-firebase-adminsdk-1g76v-671cb9e5f4.json');
+        $auth = $factory->createAuth();
+        // TEST Acceso PRO a bnnnmrtnz@gmail.com
+        // $auth->setCustomUserClaims('ySHRQmu95pOi0raoXlvN7TzSyOL2', ['role' => 'PRO']);
+        try {
+            $verifiedIdToken = $auth->verifyIdToken($_GET["token"]);
+            $uid = $verifiedIdToken->claims()->get('sub');
+            $claims = $auth->getUser($uid)->customClaims;
+            if( isset($claims["role"]) && $claims["role"]=='PRO'){
+                $user_role = 'PRO';
+            }else{
+                $user_role = '';
+            }
+        } catch (InvalidToken $e) {
+            $error =[];
+            $error["msg"] = 'The token is invalid';
+            $error["error"] = $e->getMessage();
+            echo json_encode($error);
+            die();
+        } catch (\InvalidArgumentException $e) {
+            $error =[];
+            $error["msg"] = 'The token could not be parsed';
+            $error["error"] = $e->getMessage();
+            echo json_encode($error);
+            die();
+        }
+    }else{
+        kick_out();
+    }    
 }
 
 
 require PROJECT_ROOT_PATH . "/controller/Clip.php";
- 
-$objFeedController = new ClipController();
+
+switch ($uri[1]) {
+    case 'clip':
+        $objFeedController = new ClipController($user_role);
+        break;
+    
+    default:
+        kick_out();
+        break;
+}
 $strMethodName = $uri[2] . 'Action';
 $objFeedController->{$strMethodName}();
 ?>

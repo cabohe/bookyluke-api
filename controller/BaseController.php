@@ -1,6 +1,9 @@
 <?php
 class BaseController
 {
+    function __construct($user_role) {
+        $this->user_role = $user_role;
+    }
     /**
      * __call magic method.
      */
