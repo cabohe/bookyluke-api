@@ -29,7 +29,7 @@ if (!isset($uri[1]) || !isset($uri[2])) {
 $endpoint = $uri[1].'/'.$uri[2];
 $endpoints = ['clip/scrap'];
 $open_endpoints = [];
-
+$user_role = '';
 // Si no existe el endpoint, sacamos.
 if( ! in_array( $endpoint , $endpoints ) ){
     kick_out();
@@ -49,8 +49,6 @@ if( ! in_array( $endpoint , $open_endpoints ) ){
             $claims = $auth->getUser($uid)->customClaims;
             if( isset($claims["role"]) && $claims["role"]=='PRO'){
                 $user_role = 'PRO';
-            }else{
-                $user_role = '';
             }
         } catch (InvalidToken $e) {
             $error =[];
