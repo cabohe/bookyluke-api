@@ -12,6 +12,9 @@ require(PROJECT_ROOT_PATH.'/vendor/autoload.php');
 // Firebase ADMIN SDK
 use Kreait\Firebase\Factory;
 
+$firebase_functions_endpoint = 'http://localhost:5000/bookylucke/us-central1/app';
+
+
 function kick_out(){
     header("HTTP/1.1 404 Not Found");
     exit();
@@ -27,7 +30,7 @@ if (!isset($uri[1]) || !isset($uri[2])) {
 }
 
 $endpoint = $uri[1].'/'.$uri[2];
-$endpoints = ['clip/scrap'];
+$endpoints = ['clip/scrap_and_save'];
 $open_endpoints = [];
 $user_role = '';
 // Si no existe el endpoint, sacamos.
@@ -73,7 +76,7 @@ require PROJECT_ROOT_PATH . "/controller/Clip.php";
 
 switch ($uri[1]) {
     case 'clip':
-        $objFeedController = new ClipController($user_role);
+        $objFeedController = new ClipController($firebase_functions_endpoint,$user_role);
         break;
     
     default:

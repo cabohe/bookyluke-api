@@ -1,7 +1,8 @@
 <?php
 class BaseController
 {
-    function __construct($user_role) {
+    function __construct($firebase_functions_endpoint,$user_role) {
+        $this->firebase_functions_endpoint = $firebase_functions_endpoint;
         $this->user_role = $user_role;
     }
     /**

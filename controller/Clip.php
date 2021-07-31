@@ -8,13 +8,90 @@ use Kreait\Firebase\Factory;
 
 class ClipController extends BaseController
 {
-
+    
     /**
      * "/clip/scrap" Endpoint - Scrap clip
      */
-    public function scrapAction()
+    private function firestore_save($clip_object)
+    {
+
+        //The url you wish to send the POST request to
+        $url = $this->firebase_functions_endpoint . '/clips';
+        
+        //url-ify the data for the POST
+        $body = json_encode( $clip_object );
+
+        //open connection
+        $ch = curl_init($url);
+
+        //set the url, number of POST vars, POST data
+        curl_setopt($ch,CURLOPT_POST, true);
+        curl_setopt($ch,CURLOPT_POSTFIELDS, $body);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+
+        //So that curl_exec returns the contents of the cURL; rather than echoing it
+        curl_setopt($ch,CURLOPT_RETURNTRANSFER, true); 
+
+        //execute post
+        $result = curl_exec($ch);
+
+        if ($result) {
+            $responseData = $result;
+        }else{
+            $strErrorDesc = 'Error sending FIREBASE query - ' . curl_error($ch);
+            $strErrorHeader = 'HTTP/1.1 200 OK'; 
+        }
+
+        curl_close($ch);
+ 
+        // send output
+        if (! isset( $strErrorDesc ) ) {
+            $this->sendOutput(
+                $responseData,
+                array('Content-Type: application/json', 'HTTP/1.1 200 OK')
+            );
+        } else {
+            $this->sendOutput(json_encode(array('error' => $strErrorDesc)), 
+                array('Content-Type: application/json', $strErrorHeader)
+            );
+        }
+    }
+
+     /**
+     * "/clip/scrap" Endpoint - Scrap clip
+     */
+    private function scrap($url)
     {
         $readability = new Readability(new Configuration());
+        $clip = [];
+        $raw_article_html = file_get_contents($url);
+        if(!isset($url)){
+            $resp["error"] = "url not set";
+            return $resp;
+        }
+        try {
+            $readability->parse($raw_article_html);
+
+            $clip["url"] = $url;
+            $clip["title"] = $readability->getTitle();
+            $clip["content"] = $readability->getContent();
+            $clip["image"] = $readability->getImage();
+            $clip["text_dir"] = $readability->getDirection();
+            $clip["path_info"] = $readability->getPathInfo($url);
+            $clip["sitename"] = $readability->getSiteName();
+            return $clip;
+        } catch (ParseException $e) {
+            $resp["error"] = "unable to scrap";
+            return $resp;
+        }
+    }
+
+    /**
+     * "/clip/scrap-add" Endpoint - Scrap clip
+     */
+    public function scrap_and_saveAction()
+    {
+
         $strErrorDesc = '';
         $requestMethod = $_SERVER["REQUEST_METHOD"];
         $arrQueryStringParams = $this->getQueryStringParams();
@@ -22,26 +99,15 @@ class ClipController extends BaseController
             try {
                 
                 if (isset($arrQueryStringParams['url']) && $arrQueryStringParams['url']) {
-                    $clip = [];
-                    $url = $arrQueryStringParams['url'];
-                    $raw_article_html = file_get_contents($url);
-                    try {
-                        $readability->parse($raw_article_html);
-
-                        $clip["url"] = $arrQueryStringParams['url'];
-                        $clip["title"] = $readability->getTitle();
-                        $clip["content"] = $readability->getContent();
-                        $clip["image"] = $readability->getImage();
-                        $clip["text_dir"] = $readability->getDirection();
-                        $clip["path_info"] = $readability->getPathInfo($url);
-                        $clip["sitename"] = $readability->getSiteName();
-
-                    } catch (ParseException $e) {
-                        echo sprintf('Error processing text: %s', $e->getMessage());
+                    $scrap_result = $this -> scrap($arrQueryStringParams['url']);
+                    if(!isset($scrap_result["error"])){
+                        $saveResponse = $this -> firestore_save($scrap_result);
+                    }else{
+                        $responseData = json_encode('Error:' .$scrap_result["error"]);
                     }
                 }
  
-                $responseData = json_encode($clip);
+                
             } catch (Error $e) {
                 $strErrorDesc = $e->getMessage().'Something went wrong! Please contact support.';
                 $strErrorHeader = 'HTTP/1.1 500 Internal Server Error';
@@ -63,4 +129,7 @@ class ClipController extends BaseController
             );
         }
     }
+
+
+   
 }
