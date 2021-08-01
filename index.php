@@ -1,10 +1,11 @@
 <?php
 // TEMPORAL DEVELOPMENT CROSS ORIGIN PATCH
-header('Access-Control-Allow-Origin: http://localhost:3000');
-header('Access-Control-Allow-Methods: GET, PUT, POST, DELETE, OPTIONS');
-header('Access-Control-Max-Age: 1000');
-header('Access-Control-Allow-Credentials: true');
-header('Access-Control-Allow-Headers: Origin, Content-Type, Accept, Authorization, X-Request-With, Set-Cookie, Cookie, Bearer');	
+
+// header('Access-Control-Allow-Origin: http://localhost:3000');
+// header('Access-Control-Allow-Methods: GET, PUT, POST, DELETE, OPTIONS');
+// header('Access-Control-Max-Age: 1000');
+// header('Access-Control-Allow-Credentials: true');
+// header('Access-Control-Allow-Headers: Origin, Content-Type, Accept, Authorization, X-Request-With, Set-Cookie, Cookie, Bearer');	
 
 require __DIR__ . "/inc/bootstrap.php";
 require(PROJECT_ROOT_PATH.'/vendor/autoload.php');
@@ -32,7 +33,7 @@ if (!isset($uri[1]) || !isset($uri[2])) {
 $endpoint = $uri[1].'/'.$uri[2];
 $endpoints = ['clip/scrap_and_save'];
 $open_endpoints = [];
-$user_role = '';
+$user = [];
 // Si no existe el endpoint, sacamos.
 if( ! in_array( $endpoint , $endpoints ) ){
     kick_out();
@@ -42,6 +43,7 @@ if( ! in_array( $endpoint , $endpoints ) ){
 if( ! in_array( $endpoint , $open_endpoints ) ){
     // Need validation
     if( $_GET["token"] && !$_GET["token"]==""){
+        $user['token'] = $_GET["token"];
         $factory = (new Factory)->withServiceAccount(PROJECT_ROOT_PATH.'/env/bookylucke-firebase-adminsdk-1g76v-671cb9e5f4.json');
         $auth = $factory->createAuth();
         // TEST Acceso PRO a bnnnmrtnz@gmail.com
@@ -49,9 +51,11 @@ if( ! in_array( $endpoint , $open_endpoints ) ){
         try {
             $verifiedIdToken = $auth->verifyIdToken($_GET["token"]);
             $uid = $verifiedIdToken->claims()->get('sub');
+            $user['id'] = $uid;
             $claims = $auth->getUser($uid)->customClaims;
             if( isset($claims["role"]) && $claims["role"]=='PRO'){
-                $user_role = 'PRO';
+                
+                $user['role'] = 'PRO';
             }
         } catch (InvalidToken $e) {
             $error =[];
@@ -76,7 +80,7 @@ require PROJECT_ROOT_PATH . "/controller/Clip.php";
 
 switch ($uri[1]) {
     case 'clip':
-        $objFeedController = new ClipController($firebase_functions_endpoint,$user_role);
+        $objFeedController = new ClipController($firebase_functions_endpoint,$user);
         break;
     
     default:

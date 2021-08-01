@@ -1,9 +1,24 @@
 <?php
 class BaseController
 {
-    function __construct($firebase_functions_endpoint,$user_role) {
+    function __construct($firebase_functions_endpoint,$user) {
         $this->firebase_functions_endpoint = $firebase_functions_endpoint;
-        $this->user_role = $user_role;
+        if( isset($user['id']) ){
+            $this->user_id = $user['id'];
+        }else{
+            $this->user_id = null;
+        }
+        if( isset($user['role']) ){
+            $this->user_role = $user['role'];
+        }else{
+            $this->user_role = null;
+        }
+        if( isset($user['token']) ){
+            $this->user_token = $user['token'];
+        }else{
+            $this->user_token = null;
+        }
+        
     }
     /**
      * __call magic method.
@@ -45,8 +60,9 @@ class BaseController
      */
     protected function sendOutput($data, $httpHeaders=array())
     {
+        header("Access-Control-Allow-Origin: *");
         header_remove('Set-Cookie');
- 
+        
         if (is_array($httpHeaders) && count($httpHeaders)) {
             foreach ($httpHeaders as $httpHeader) {
                 header($httpHeader);
@@ -56,4 +72,29 @@ class BaseController
         echo $data;
         exit;
     }
+
+
+    protected function queryFirestoreFunctions($endpoint_url,$body){
+         //open connection
+        $ch = curl_init($endpoint_url);
+
+        // Add auth
+        $authorization = "Authorization: Bearer " . $this->user_token;
+
+        //set the url, number of POST vars, POST data
+        curl_setopt($ch,CURLOPT_POST, true);
+        curl_setopt($ch,CURLOPT_POSTFIELDS, $body);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json', $authorization ));
+
+        //So that curl_exec returns the contents of the cURL; rather than echoing it
+        curl_setopt($ch,CURLOPT_RETURNTRANSFER, true); 
+
+        //execute post
+        $result = curl_exec($ch);
+
+        curl_close($ch);
+
+        return $result;
+    }
+       
 }

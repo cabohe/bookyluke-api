@@ -11,6 +11,7 @@ class ClipController extends BaseController
     
     /**
      * "/clip/scrap" Endpoint - Scrap clip
+     * TODO : Pass Bearer to FIREBASE
      */
     private function firestore_save($clip_object)
     {
@@ -21,28 +22,14 @@ class ClipController extends BaseController
         //url-ify the data for the POST
         $body = json_encode( $clip_object );
 
-        //open connection
-        $ch = curl_init($url);
-
-        //set the url, number of POST vars, POST data
-        curl_setopt($ch,CURLOPT_POST, true);
-        curl_setopt($ch,CURLOPT_POSTFIELDS, $body);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
-
-        //So that curl_exec returns the contents of the cURL; rather than echoing it
-        curl_setopt($ch,CURLOPT_RETURNTRANSFER, true); 
-
-        //execute post
-        $result = curl_exec($ch);
-
+        $result = $this->queryFirestoreFunctions($url,$body);
+        
         if ($result) {
             $responseData = $result;
         }else{
             $strErrorDesc = 'Error sending FIREBASE query - ' . curl_error($ch);
             $strErrorHeader = 'HTTP/1.1 200 OK'; 
         }
-
-        curl_close($ch);
  
         // send output
         if (! isset( $strErrorDesc ) ) {
@@ -79,6 +66,9 @@ class ClipController extends BaseController
             $clip["text_dir"] = $readability->getDirection();
             $clip["path_info"] = $readability->getPathInfo($url);
             $clip["sitename"] = $readability->getSiteName();
+            if( $this->user_id ){
+                $clip["user_id"] = $this->user_id;
+            }
             return $clip;
         } catch (ParseException $e) {
             $resp["error"] = "unable to scrap";
@@ -101,7 +91,7 @@ class ClipController extends BaseController
                 if (isset($arrQueryStringParams['url']) && $arrQueryStringParams['url']) {
                     $scrap_result = $this -> scrap($arrQueryStringParams['url']);
                     if(!isset($scrap_result["error"])){
-                        $saveResponse = $this -> firestore_save($scrap_result);
+                        $responseData = json_encode($this -> firestore_save($scrap_result));
                     }else{
                         $responseData = json_encode('Error:' .$scrap_result["error"]);
                     }
