@@ -74,7 +74,7 @@ class BaseController
     }
 
 
-    protected function queryFirestoreFunctions($endpoint_url,$body){
+    protected function queryFirestorePostFunctions($endpoint_url,$body){
          //open connection
         $ch = curl_init($endpoint_url);
 
@@ -89,8 +89,34 @@ class BaseController
         //So that curl_exec returns the contents of the cURL; rather than echoing it
         curl_setopt($ch,CURLOPT_RETURNTRANSFER, true); 
 
-        //execute post
         $result = curl_exec($ch);
+        if($result === false){
+            $result = curl_error($ch);
+        }
+
+        curl_close($ch);
+
+        return $result;
+    }
+
+    protected function queryFirestoreGetFunctions($endpoint_url){
+         //open connection
+        $ch = curl_init($endpoint_url);
+
+        // Add auth
+        $authorization = "Authorization: Bearer " . $this->user_token;
+
+        //set the url, number of POST vars, POST data
+        curl_setopt($ch,CURLOPT_POST, false);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type:application/json', $authorization ));
+
+        //So that curl_exec returns the contents of the cURL; rather than echoing it
+        curl_setopt($ch,CURLOPT_RETURNTRANSFER, true); 
+
+        $result = curl_exec($ch);
+        if($result === false){
+            $result = curl_error($ch);
+        }
 
         curl_close($ch);
 

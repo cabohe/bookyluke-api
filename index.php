@@ -1,11 +1,4 @@
 <?php
-// TEMPORAL DEVELOPMENT CROSS ORIGIN PATCH
-
-// header('Access-Control-Allow-Origin: http://localhost:3000');
-// header('Access-Control-Allow-Methods: GET, PUT, POST, DELETE, OPTIONS');
-// header('Access-Control-Max-Age: 1000');
-// header('Access-Control-Allow-Credentials: true');
-// header('Access-Control-Allow-Headers: Origin, Content-Type, Accept, Authorization, X-Request-With, Set-Cookie, Cookie, Bearer');	
 
 require __DIR__ . "/inc/bootstrap.php";
 require(PROJECT_ROOT_PATH.'/vendor/autoload.php');
@@ -31,8 +24,8 @@ if (!isset($uri[1]) || !isset($uri[2])) {
 }
 
 $endpoint = $uri[1].'/'.$uri[2];
-$endpoints = ['clip/scrap_and_save'];
-$open_endpoints = [];
+$endpoints = ['clip/scrap_and_save','clip/download_epub','clip/test'];
+$open_endpoints = ['clip/test'];
 $user = [];
 // Si no existe el endpoint, sacamos.
 if( ! in_array( $endpoint , $endpoints ) ){
