@@ -1,4 +1,8 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header("Access-Control-Allow-Headers: X-API-KEY, Origin, X-Requested-With, Content-Type, Accept, Access-Control-Request-Method");
+header("Access-Control-Allow-Methods: GET, POST, OPTIONS, PUT, DELETE");
+header("Allow: GET, POST, OPTIONS, PUT, DELETE");
 
 require __DIR__ . "/inc/bootstrap.php";
 require(PROJECT_ROOT_PATH.'/vendor/autoload.php');
@@ -24,7 +28,7 @@ if (!isset($uri[1]) || !isset($uri[2])) {
 }
 
 $endpoint = $uri[1].'/'.$uri[2];
-$endpoints = ['clip/scrap_and_save','clip/download_epub','clip/test'];
+$endpoints = ['clip/scrap_and_save','clip/download_epub','clip/scrap_and_download','clip/test'];
 $open_endpoints = ['clip/test'];
 $user = [];
 // Si no existe el endpoint, sacamos.
@@ -67,7 +71,6 @@ if( ! in_array( $endpoint , $open_endpoints ) ){
         kick_out();
     }    
 }
-
 
 require PROJECT_ROOT_PATH . "/controller/Clip.php";
 

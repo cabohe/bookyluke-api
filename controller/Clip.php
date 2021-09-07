@@ -25,23 +25,14 @@ class ClipController extends BaseController
         $result = $this->queryFirestorePostFunctions($url,$body);
 
         if ($result) {
-            $responseData = $result;
+            return $result;
         }else{
             $strErrorDesc = 'Error sending FIREBASE query';
-            $strErrorHeader = 'HTTP/1.1 200 OK'; 
-        }
- 
-        // send output
-        if (! isset( $strErrorDesc ) ) {
-            $this->sendOutput(
-                $responseData,
-                array('Content-Type: application/json', 'HTTP/1.1 200 OK')
-            );
-        } else {
             $this->sendOutput(json_encode(array('error' => $strErrorDesc)), 
                 array('Content-Type: application/json', $strErrorHeader)
             );
         }
+ 
     }
 
     private function load_clip($clip_id){
@@ -73,63 +64,63 @@ class ClipController extends BaseController
             }else{
                 $rel_path = dirname($path,$down_levels);
             };
-            $final_path = $urlinfo["scheme"].'://'.$urlinfo["host"].$rel_path;        
-
-            $new_src= $final_path.$new_img_path;
+            if( isset($urlinfo["scheme"] )){
+                $final_path = $urlinfo["scheme"].'://'.$urlinfo["host"].$rel_path;  
+                $new_src= $final_path.$new_img_path;
+            }else{
+                // No se puede detectar tipo de URL
+                $new_src= $img_url;
+            }
             return $new_src;
         }
     }
 
     private function clean_html($content, $content_path=""){
-
-        
-        // Add alt to images
-        $content = preg_replace('/(<img(?!.*?alt=([\'"]).*?\2)[^>]*?)(\/?>)/', '$1 alt="image"$3', $content );
         // Replace LAZY LOAD SRCs to SRC
         $content = preg_replace('/data-sf-src="([^\'"]*)"/', 'src="$1"', $content);
         $content = preg_replace('/data-lazy-src="([^\'"]*)"/', 'src="$1"', $content);
+        $content = preg_replace('/data-src="([^\'"]*)"/', 'src="$1"', $content);
 
+        // Remove data atributes
+        $content = preg_replace('/data-[a-z0-9_-]*="[^\'"]*"/', '', $content);
+        // Replace AMP images to images
+        $content = preg_replace('/<amp-img/', '<img', $content);
+        $content = preg_replace('/<\/amp-img>/', '</img>', $content); 
+
+        // Remove inline SVG srcs
+        $content = preg_replace('/src="data:image\/svg\+xml([^\"]*)"/', '', $content);
+        // REMOVE UNNECESSARY IMAGE ATTRS
         // Removes SIZES ATTR
-        $content = preg_replace('/data-lazy-sizes="([^\"])*"/', '', $content);
         $content = preg_replace('/sizes="([^\"])*"/', '', $content);
         // Removes SRCSET ATTR
-        $content = preg_replace('/data-lazy-srcset="([^\"])*"/', '', $content);
         $content = preg_replace('/srcset="([^\"])*"/', '', $content);
         // Removes HEIGHT ATTR
         $content = preg_replace('/height="([^\"])*"/', '', $content);
         // Removes WIDTH ATTR
         $content = preg_replace('/width="([^\"])*"/', '', $content);
-
-        // Si SRC empieza con DATA y existe data-lazy-src, los remplazamos.
-        // TODOS LOS LAZY_LOAD SRC: preg_match_all('/data-lazy-src="([^\"]*)"/', $input_lines, $output_array);
-        //  TODAS LOS TAG DE IMG: $img_tags = []; preg_match_all('/<img ([^\<])*/', $content, $img_tags);
-
-        // Remove standard lazy load
-        $content = preg_replace('/data-lazy-src="([^\"])*"/', '', $content);
-        $content = preg_replace('/loading="lazy" /', '', $content);
-
-        // Replace AMP images to images
-        $content = preg_replace('/<amp-img/', '<img', $content);
-        $content = preg_replace('/<\/amp-img>/', '</img>', $content); 
-        
-        // Check absolute images
-        $images_src = [];
-        preg_match_all('/src\s*=\s*"(.+?)"/', $content, $images_src);
-
-        if(count($images_src) > 0){
-            foreach($images_src[1] as $src){
-                // If src is not HTTP, try to set absolute path
-                $new_src = $this->img_rel_to_abs( $src ,$content_path[0] );
-                $content = str_replace($src, $new_src, $content);
-            }
-        }
+        // Removes decoding ATTR
+        $content = preg_replace('/decoding="([^\"])*"/', '', $content);
+        // Removes loading ATTR
+        $content = preg_replace('/loading="([^\"])*"/', '', $content);
         // Remove unaccepted attrs
         $content = preg_replace('/rel="([^\'"]*)"/', '', $content);
         $content = preg_replace('/readabilityDataTable="([^\'"]*)"/', '', $content);
-        // Remove data atributes
-        $content = preg_replace('/data-[a-z0-9_-]*="[^\'"]*"/', '', $content);
         // Remove multiple spaces
         $content = preg_replace('/\s+/', ' ', $content);
+        // Add alt to images
+        $content = preg_replace('/(<img(?!.*?alt=([\'"]).*?\2)[^>]*?)(\/?>)/', '$1 alt="image"$3', $content );
+
+        // Check absolute images
+        // In other process, will use to download image and set relative to ebook.
+        $images_src = [];
+        preg_match_all('/src\s*=\s*"(.+?)"/', $content, $images_src);
+        if(count($images_src) > 0){
+            foreach($images_src[1] as $src){
+                // If src is not HTTP, try to set absolute path
+                $new_src = $this -> img_rel_to_abs( $src ,$content_path[0] );
+                $content = str_replace($src, $new_src, $content);
+            }
+        }
         return $content;
     }
      /**
@@ -218,7 +209,6 @@ class ClipController extends BaseController
      * "/clip/download_epub" Endpoint - Download saved clip
      */
     public function download_epubAction(){
-
         $strErrorDesc = '';
         $requestMethod = $_SERVER["REQUEST_METHOD"];
         $arrQueryStringParams = $this->getQueryStringParams();
@@ -236,7 +226,6 @@ class ClipController extends BaseController
                         $chapter1 = ['title' => addslashes( $clip->title ),'content' => $clip->clean_content ];
                         $myBook->addChapter($chapter1);
                         $myBook->download_file();
-                        $responseData = true;
                     }else{
                         return false;
                     }
@@ -253,12 +242,54 @@ class ClipController extends BaseController
         }
  
         // send output
-        if (!$strErrorDesc) {
-            $this->sendOutput(
-                $responseData,
-                array('Content-Type: application/json', 'HTTP/1.1 200 OK')
+        if ($strErrorDesc) {
+            $this->sendOutput(json_encode(array('error' => $strErrorDesc)), 
+                array('Content-Type: application/json', $strErrorHeader)
             );
+        }
+    }
+
+     /**
+     * "/clip/scrap_and_save" Endpoint - Scrap clip
+     */
+    public function scrap_and_downloadAction(){
+        
+        $strErrorDesc = '';
+        $requestMethod = $_SERVER["REQUEST_METHOD"];
+        $arrQueryStringParams = $this->getQueryStringParams();
+        if (strtoupper($requestMethod) == 'GET') {
+            try {
+                 
+                if (isset($arrQueryStringParams['url']) && $arrQueryStringParams['url']) {
+                    $scrap_result = $this -> scrap($arrQueryStringParams['url']);
+                    if(!isset($scrap_result["error"])){
+                        // Save in firestore
+                        $saveResponse = json_encode($this -> firestore_save($scrap_result));
+                        // Generate eBook
+                        // echo $scrap_result["title"];
+                        // echo $scrap_result["clean_content"];
+                        $myBook = new Ebook();
+                        $myBook->setTitle( addslashes( $scrap_result["title"] ) );
+                        $chapter1 = ['title' => addslashes( $scrap_result["title"] ),'content' => $scrap_result["clean_content"] ];
+                        $myBook->addChapter($chapter1);
+                        $myBook->download_file();
+                    }else{
+                        $responseData = json_encode('Error:' .$scrap_result["error"]);
+                    }
+                }
+ 
+                
+            } catch (Error $e) {
+                $strErrorDesc = $e->getMessage().'Something went wrong! Please contact support.';
+                $strErrorHeader = 'HTTP/1.1 500 Internal Server Error';
+            }
         } else {
+            $strErrorDesc = 'Method not supported';
+            $strErrorHeader = 'HTTP/1.1 422 Unprocessable Entity';
+        }
+ 
+        // send output
+        if ($strErrorDesc) {
             $this->sendOutput(json_encode(array('error' => $strErrorDesc)), 
                 array('Content-Type: application/json', $strErrorHeader)
             );

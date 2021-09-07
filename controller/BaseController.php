@@ -60,7 +60,6 @@ class BaseController
      */
     protected function sendOutput($data, $httpHeaders=array())
     {
-        header("Access-Control-Allow-Origin: *");
         header_remove('Set-Cookie');
         
         if (is_array($httpHeaders) && count($httpHeaders)) {
