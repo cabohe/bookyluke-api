@@ -105,8 +105,17 @@ class ClipController extends BaseController
         // Remove unaccepted attrs
         $content = preg_replace('/rel="([^\'"]*)"/', '', $content);
         $content = preg_replace('/readabilityDataTable="([^\'"]*)"/', '', $content);
+        // Try to catch FAKEHOSTS in images
+        $content = preg_replace('/src="http:\/\/[^\/.]*\//', 'src="/', $content);
+        $content = preg_replace('/src="https:\/\/[^\/.]*\//', 'src="/', $content);
+        // Remove images without SRC -
+        $content = preg_replace('/<img(?![^>]*(src="[^"]+"))[^>]*>/', '', $content);
         // Remove multiple spaces
         $content = preg_replace('/\s+/', ' ', $content);
+        // Remove empty TAGS
+        $content = preg_replace("/<p[^>]*>(?:\s|&nbsp;)*<\/p>/", '', $content);
+        $content = preg_replace("/<div[^>]*>(?:\s|&nbsp;)*<\/div>/", '', $content);
+        $content = preg_replace("/<span[^>]*>(?:\s|&nbsp;)*<\/span>/", '', $content);
         // Add alt to images
         $content = preg_replace('/(<img(?!.*?alt=([\'"]).*?\2)[^>]*?)(\/?>)/', '$1 alt="image"$3', $content );
 

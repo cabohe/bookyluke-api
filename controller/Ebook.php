@@ -4,10 +4,13 @@ class Ebook{
     private $ebook_title = '';
     private $cover_url = '';
     private $ebook_creator = 'BookyLuke';
+    private $ebook_toc_filename = 'chapters_toc.xhtml';
+    private $ebook_css_filename = 'book.css';
     private $ebook_lang = 'en-US';
     private $chapters_numeration_length = 4;
     private $filename = '';
-    private $chapters = [];
+    private $file_log;
+    public $chapters = [];
 
     function __construct($options=[]) {
         if(isset($options["type"])){
@@ -25,8 +28,17 @@ class Ebook{
         }else{
             $this->temp_folder = 'ebooks';
         }
-
+        
+            
         $this->filepath = $this->temp_folder.'/'.$this->ebook_id.'/';
+    }
+            
+
+    private function log($msg){
+        $this-> file_log = fopen('log.txt', 'a');
+        fwrite($this-> file_log, $msg);
+        fwrite($this-> file_log, "\r\n");        
+        fclose($this-> file_log);
     }
 
     // $chapter : array (title, content)
@@ -64,6 +76,9 @@ class Ebook{
         return $text;
     }
 
+    private function encodeAmpersand($text){
+        return str_replace("&", "&amp;", $text);
+    }
 
     // GENERATE
 
@@ -113,7 +128,6 @@ class Ebook{
             {{EBOOK_SPINE_TOC}}
         </spine>
         </package>';
-
         if( count($this->chapters) < 1 ){
             echo '<pre>';
                 print_r("No chapters");
@@ -121,14 +135,21 @@ class Ebook{
         }else{
             $manifest_chapters = '';
             $spine_toc = '';
+            if( count($this->chapters) > 1 ){
+                $manifest_chapters .='<item id="chapters_toc" href="'.$this->ebook_toc_filename.'" media-type="application/xhtml+xml" />'.chr(10);
+                $spine_toc .= '<itemref idref="chapters_toc" />'.chr(10);
+            }
             foreach( $this->chapters as $key => $chapter ){
                 $chapter_num = str_pad( ($key+1) , $this -> chapters_numeration_length, "0", STR_PAD_LEFT);
-                $manifest_chapters .='<item id="chapter'.$chapter_num.'" href="chapter'.$chapter_num.'.xhtml" media-type="application/xhtml+xml" />'.chr(10);
+                $chapter_file = 'chapter'.$chapter_num.'.xhtml';
+                $manifest_chapters .='<item id="chapter'.$chapter_num.'" href="'.$chapter_file.'" media-type="application/xhtml+xml" />'.chr(10);
                 $spine_toc .= '<itemref idref="chapter'.$chapter_num.'" />'.chr(10);
+                $this->chapters[$key]["num"] = $chapter_num;
+                $this->chapters[$key]["file"] = $chapter_file;
             }
 
             $tpl_replaces = ["{{UNIQUE_ID}}","{{EBOOK_TITLE}}","{{EBOOK_CREATOR}}","{{EBOOK_LANG}}","{{EBOOK_MANIFEST_CHAPTERS}}","{{EBOOK_SPINE_TOC}}"];
-            $ebook_values = ["bookyluke".$this->ebook_id,$this->ebook_title,$this->ebook_creator,$this->ebook_lang,$manifest_chapters,$spine_toc];
+            $ebook_values = ["bookyluke".$this->ebook_id,$this->encodeAmpersand($this->ebook_title),$this->encodeAmpersand($this->ebook_creator),$this->ebook_lang,$manifest_chapters,$spine_toc];
 
             $final_opf_content = str_replace($tpl_replaces, $ebook_values, $opf_content);
 
@@ -199,7 +220,6 @@ class Ebook{
     private function create_epub_chapters(){
 
         foreach( $this->chapters as $key => $chapter ){
-            $chapter_num = str_pad( ($key+1) , $this -> chapters_numeration_length, "0", STR_PAD_LEFT);
             
             try {
                 
@@ -224,21 +244,25 @@ class Ebook{
                 }else{
                     $final_content = $chapter["content"];
                 };
-
+                $css_file = $this->ebook_css_filename;
                 $current_chapter = '<?xml version="1.0" encoding="utf-8"?>
                 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
                 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 
                 <head>
                     <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
+                    <link href="'.$css_file.'" rel="stylesheet" type="text/css"/>
                     <title>'.$chapter["title"].'</title>
                 </head>
-
-                <body>'.$final_content.'
+                
+                <body>
+                    <h1 class="chapter_title">'.$chapter["title"].'</h1>
+                    <h2 class="chapter_metas">'.$chapter["subtitle"].'</h2>'
+                    .$final_content.'
                 </body>
                 </html>';
 
-                $chapter_file = fopen($this->filepath."OEBPS/chapter".$chapter_num.".xhtml", "w");
+                $chapter_file = fopen($this->filepath."OEBPS/".$chapter['file'], "w");
                 fwrite($chapter_file, $current_chapter);
                 fclose($chapter_file);
 
@@ -250,6 +274,43 @@ class Ebook{
                 echo '</pre>';
             }
         }
+    }
+
+    private function create_epub_chapters_index(){
+        $final_content = '<ul>';
+        foreach( $this->chapters as $key => $chapter ){
+            $final_content .= '<li><a href="'.$chapter["file"].'">'.$chapter["title"].'</a></li>';
+        }
+        $final_content .= '</ul>';
+        $index_html = '<?xml version="1.0" encoding="utf-8"?>
+        <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+        <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+
+        <head>
+            <meta http-equiv="Content-Type" content="application/xhtml+xml; charset=utf-8" />
+            <link href="'.$this->ebook_css_filename.'" rel="stylesheet" type="text/css"/>
+            <title>Index</title>
+        </head>
+
+        <body><h1 class="chapters_toc_title">Index</h1>'.$final_content.'
+        </body>
+        </html>';
+
+        $chapter_file = fopen($this->filepath."OEBPS/".$this->ebook_toc_filename, "w");
+        fwrite($chapter_file, $index_html);
+        fclose($chapter_file);
+    }
+
+    private function create_epub_css(){
+        $str_css = 'h1.chapter_title{font-size:2.7em;line-height:1.1;font-weight:normal;margin-bottom:1em}';
+        $str_css .= 'h2.chapter_metas {border-bottom:1px solid #000;padding-bottom:2em;margin-bottom:2em}';
+        $str_css .= 'h2.chapter_metas span{font-size:0.9em;font-weight:bold;line-height:1.1;display:block;}';
+        $str_css .= 'h2.chapter_metas a{font-size:0.6em;line-height:1.1;}';
+
+        $str_css .= 'h1.chapters_toc_title{font-size:2.1em}';
+        $css_file = fopen($this->filepath."OEBPS/".$this->ebook_css_filename, "w");
+        fwrite($css_file, $str_css);
+        fclose($css_file);
     }
 
     private function save_epub_chapter_images($html){
@@ -375,6 +436,15 @@ class Ebook{
             $fp = fopen($saveto,'x');
             fwrite($fp, $raw);
             fclose($fp);
+
+            // cerdito: 268 - Tamaño minimo a boleo, sin nada cientifico.
+            
+            if( (filesize($saveto) < 500) && ( strpos($url, 'http://') > -1 ) ){
+                $url_secure = str_replace('http://', 'https://', $url);
+                $this->grab_image($url_secure,$saveto);
+            }
+
+
             return true;
         } catch (\Throwable $th) {
             return false;
@@ -383,7 +453,6 @@ class Ebook{
     }
 
     public function create_file(){
-
             
         if( $this->ebook_type == "epub"){
             $this->create_epub_paths();
@@ -391,8 +460,12 @@ class Ebook{
             $this->create_epub_opf();
             $this->create_epub_ncx();
             $this->create_epub_chapters();
+            $this->create_epub_css();
+            if( count( $this->chapters ) > 1 ){
+                $this->create_epub_chapters_index();
+            }
             $generated_file = $this->create_epub_zip();
-            $this->remove_temp_folder();
+            // $this->remove_temp_folder();
             return $generated_file;
         }
         

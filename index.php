@@ -28,7 +28,7 @@ if (!isset($uri[1]) || !isset($uri[2])) {
 }
 
 $endpoint = $uri[1].'/'.$uri[2];
-$endpoints = ['clip/scrap_and_save','clip/download_epub','clip/scrap_and_download','clip/test'];
+$endpoints = ['clip/scrap_and_save','clip/download_epub','clip/scrap_and_download','book/download_epub','clip/test'];
 $open_endpoints = ['clip/test'];
 $user = [];
 // Si no existe el endpoint, sacamos.
@@ -72,11 +72,16 @@ if( ! in_array( $endpoint , $open_endpoints ) ){
     }    
 }
 
-require PROJECT_ROOT_PATH . "/controller/Clip.php";
+
 
 switch ($uri[1]) {
     case 'clip':
+        require PROJECT_ROOT_PATH . "/controller/Clip.php";
         $objFeedController = new ClipController($firebase_functions_endpoint,$user);
+        break;
+    case 'book':
+        require PROJECT_ROOT_PATH . "/controller/Book.php";
+        $objFeedController = new BookController($firebase_functions_endpoint,$user);
         break;
     
     default:
